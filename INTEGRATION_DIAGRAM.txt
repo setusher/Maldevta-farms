@@ -1,0 +1,179 @@
+╔══════════════════════════════════════════════════════════════════════════╗
+║           TRAVEL STUDIO API INTEGRATION ARCHITECTURE                      ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+                           WhatsApp User
+                                 │
+                                 │ sends message
+                                 ▼
+                    ┌────────────────────────┐
+                    │   WhatsApp Webhook     │
+                    │    (AiSensy/Twilio)   │
+                    └───────────┬────────────┘
+                                │
+                                │ POST /webhook
+                                ▼
+                    ┌────────────────────────┐
+                    │   FastAPI Server       │
+                    │   (server.py)          │
+                    │                        │
+                    │  Routes:               │
+                    │  • /webhook            │
+                    │  • /process-async      │
+                    │  • /travel-studio/*    │◄───── Direct API access
+                    └───────────┬────────────┘
+                                │
+                   ┌────────────┴────────────┐
+                   │                         │
+                   ▼                         ▼
+       ┌──────────────────┐      ┌──────────────────────┐
+       │  Agent Service   │      │ Travel Studio API    │
+       │ (AI Processing)  │      │  Endpoints           │
+       │                  │      │                      │
+       │ • Process msg    │      │ GET /bookings        │
+       │ • Generate reply │      │ POST /bookings       │
+       │ • Call tools     │      │ GET /rooms/available │
+       └────────┬─────────┘      └──────────────────────┘
+                │
+                │ needs booking info
+                ▼
+       ┌──────────────────────────┐
+       │ Travel Studio Service    │
+       │ (travel_studio_service.py)│
+       │                          │
+       │ Methods:                 │
+       │ • get_bookings()         │
+       │ • create_booking()       │
+       │ • get_available_rooms()  │
+       │ • get_guest_bookings()   │
+       │ • cancel_booking()       │
+       │ • confirm_booking()      │
+       │ • get_hotel_profile()    │
+       │ • get_reports()          │
+       └────────┬─────────────────┘
+                │
+                │ HTTP requests with Bearer token
+                ▼
+       ┌──────────────────────────┐
+       │  Travel Studio Backend   │
+       │  (External API)          │
+       │                          │
+       │  https://travel-studio-  │
+       │  backend...              │
+       │                          │
+       │  Authentication:         │
+       │  Bearer Token (JWT)      │
+       │  Hotel ID: aec93eab...   │
+       └──────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                        EXAMPLE USER FLOW                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+1. User: "Do you have rooms available Dec 15-17?"
+   ↓
+2. WhatsApp → Webhook → Server → Agent Service
+   ↓
+3. Agent Service → Travel Studio Service
+   ↓
+4. Travel Studio Service → Travel Studio API
+   GET /api/hotel/rooms/available?check_in=2025-12-15&check_out=2025-12-17
+   ↓
+5. API Response → Travel Studio Service → Agent Service
+   ↓
+6. Agent generates reply: "Yes! We have 3 rooms available..."
+   ↓
+7. WhatsApp sends reply to user
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          FILES STRUCTURE                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+gyde-ai-whatsapp/
+├── .env                              ← API credentials configured
+├── server.py                         ← Added Travel Studio endpoints
+├── services/
+│   ├── __init__.py                   ← Exports TravelStudioService
+│   ├── whatsapp_service.py          ← WhatsApp integration
+│   ├── agent_service.py             ← AI agent logic
+│   ├── tool_service.py              ← Tool calling
+│   └── travel_studio_service.py     ← NEW: Travel Studio API wrapper
+├── test_travel_studio.py            ← NEW: Comprehensive tests
+├── test_travel_api.py               ← NEW: Simple endpoint tests
+├── TRAVEL_STUDIO_INTEGRATION.md     ← NEW: Detailed usage guide
+├── INTEGRATION_SUMMARY.md           ← NEW: Complete overview
+├── QUICK_START.md                   ← NEW: Quick reference
+└── INTEGRATION_DIAGRAM.txt          ← This file
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         CONFIGURATION                                     ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Environment Variables (.env):
+
+TRAVEL_STUDIO_API_URL=
+  "https://travel-studio-backend-e2bkc2e0a8e4e3hy.centralindia-01.azurewebsites.net"
+
+TRAVEL_STUDIO_BEARER_TOKEN=
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJob3RlbElkIjoiYWVjOTNlYW..."
+  
+Token Details:
+  - Hotel ID: aec93eab-a17b-4bec-b44a-08030dead54f
+  - Role: hotel
+  - Expires: February 8, 2025
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                      INTEGRATION STATUS                                   ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+✅ COMPLETED:
+  • Service class created with all methods
+  • Configuration added to .env
+  • Server endpoints implemented
+  • Error handling added
+  • Logging configured
+  • Documentation written
+  • Test scripts created
+
+⚠️  PENDING:
+  • API endpoint verification (returns 404)
+  • Need Travel Studio API documentation
+  • Update endpoint paths once known
+
+🔄 NEXT STEPS:
+  1. Get API documentation from Travel Studio team
+  2. Update endpoint paths in travel_studio_service.py
+  3. Run tests: python test_travel_api.py
+  4. Integrate with WhatsApp agent
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    AVAILABLE API METHODS                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Booking Management:
+  • get_bookings(status, start_date, end_date)
+  • get_booking_by_id(booking_id)
+  • create_booking(guest_name, email, phone, dates, ...)
+  • update_booking(booking_id, **fields)
+  • cancel_booking(booking_id, reason)
+  • confirm_booking(booking_id)
+
+Room Management:
+  • get_available_rooms(check_in, check_out, room_type)
+  • get_room_types()
+
+Guest Management:
+  • get_guest_by_phone(phone)
+  • get_guest_bookings(phone)
+
+Analytics:
+  • get_occupancy_report(start_date, end_date)
+  • get_revenue_report(start_date, end_date)
+
+Hotel Profile:
+  • get_hotel_profile()
+  • update_hotel_profile(**fields)
+
+Notifications:
+  • send_booking_confirmation(booking_id)
+

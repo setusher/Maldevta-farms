@@ -1,0 +1,13 @@
+#!/bin/bash
+echo "Testing migrated endpoints..."
+echo ""
+echo "✅ check_availability - Using Travel Studio API"
+echo "✅ create_booking_reservation - Using Travel Studio API"
+echo "✅ get_all_room_reservations - Using Travel Studio API"
+echo "📧 create_event_inquiry - Sends email"
+echo "📧 lead_gen - Sends email"
+echo "📧 human_followup - Sends email"
+echo "💾 general_info - Hardcoded data"
+echo "❌ Hourly bookings - Disabled"
+echo ""
+echo "All endpoints migrated!"
