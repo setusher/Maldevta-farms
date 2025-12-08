@@ -120,7 +120,7 @@ class ToolService:
             available_rooms = self.travel_studio.get_available_rooms(
                 check_in_date=check_in,
                 check_out_date=check_out,
-                room_type=params.get("room_type_id"),
+                category=params.get("room_type_id"),
                 num_adults=params.get("num_of_adults"),
                 num_children=params.get("num_of_children")
             )
@@ -209,10 +209,10 @@ class ToolService:
         try:
             logger.info(f"Creating booking via Travel Studio API: {params.get('name')}")
             
-            # Determine room type from room_type_ids array
-            room_type = "Deluxe"  # Default
+            # Determine room category from room_type_ids array
+            room_category = "Deluxe"  # Default
             if params.get("room_type_ids") and len(params["room_type_ids"]) > 0:
-                room_type = params["room_type_ids"][0]
+                room_category = params["room_type_ids"][0]
             
             booking = self.travel_studio.create_booking(
                 guest_name=params.get("name", ""),
@@ -220,8 +220,11 @@ class ToolService:
                 guest_phone=params.get("phone_number", ""),
                 check_in_date=check_in,
                 check_out_date=check_out,
-                room_type=room_type,
-                number_of_guests=params.get("num_of_adults", 1) + params.get("num_of_children", 0),
+                room_category=room_category,
+                num_adults=params.get("num_of_adults", 1),
+                num_children=params.get("num_of_children", 0),
+                booking_channel="whatsapp",
+                payment_status="Unpaid",
                 special_requests=params.get("special_request", "")
             )
             

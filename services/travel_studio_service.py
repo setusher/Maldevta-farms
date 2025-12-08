@@ -148,8 +148,12 @@ class TravelStudioService:
         guest_phone: str,
         check_in_date: str,
         check_out_date: str,
-        room_type: str,
-        number_of_guests: int,
+        room_category: str,
+        num_adults: int,
+        num_children: int = 0,
+        num_nights: Optional[int] = None,
+        booking_channel: str = "whatsapp",
+        payment_status: str = "Unpaid",
         special_requests: Optional[str] = None,
         **kwargs
     ) -> Optional[Dict]:
@@ -159,35 +163,79 @@ class TravelStudioService:
         Args:
             guest_name: Guest full name
             guest_email: Guest email
-            guest_phone: Guest phone number
-            check_in_date: Check-in date (YYYY-MM-DD)
-            check_out_date: Check-out date (YYYY-MM-DD)
-            room_type: Room type/category
-            number_of_guests: Number of guests
+            guest_phone: Guest phone number (format: +11234567890)
+            check_in_date: Check-in date (ISO format: YYYY-MM-DDTHH:MM:SS.SSSZ or YYYY-MM-DD)
+            check_out_date: Check-out date (ISO format: YYYY-MM-DDTHH:MM:SS.SSSZ or YYYY-MM-DD)
+            room_category: Room category (e.g., "Deluxe", "Luxury Cottage")
+            num_adults: Number of adults
+            num_children: Number of children (default: 0)
+            num_nights: Number of nights (calculated if not provided)
+            booking_channel: Booking source (default: "whatsapp")
+            payment_status: Payment status (default: "Unpaid")
             special_requests: Any special requests
             **kwargs: Additional booking details
             
         Returns:
             Created booking object or None on error
+            
+        Example Request:
+            {
+                "guest_name": "John Doe",
+                "guest_phone": "+11234567890",
+                "guest_email": "john.doe@example.com",
+                "room_category": "Deluxe",
+                "num_adults": 2,
+                "num_children": 1,
+                "check_in_date": "2025-12-01T14:00:00.000Z",
+                "num_nights": 3,
+                "check_out_date": "2025-12-04T10:00:00.000Z",
+                "booking_channel": "whatsapp",
+                "payment_status": "Unpaid"
+            }
         """
-        data = {
-            "guest_name": guest_name,
-            "guest_email": guest_email,
-            "guest_phone": guest_phone,
-            "check_in_date": check_in_date,
-            "check_out_date": check_out_date,
-            "room_type": room_type,
-            "number_of_guests": number_of_guests,
-            "special_requests": special_requests,
-            **kwargs
-        }
+        from datetime import datetime
         
-        result = self._make_request("POST", "/api/hocc/bookings", data=data)
-        
-        if result and result.get("success"):
-            logger.info(f"Booking created successfully: {result.get('data', {}).get('booking_id')}")
-            return result.get("data")
-        return None
+        try:
+            # Convert YYYY-MM-DD to ISO format if needed
+            if "T" not in check_in_date:
+                check_in_date = f"{check_in_date}T14:00:00.000Z"
+            if "T" not in check_out_date:
+                check_out_date = f"{check_out_date}T10:00:00.000Z"
+            
+            # Calculate num_nights if not provided
+            if num_nights is None:
+                checkin = datetime.fromisoformat(check_in_date.replace('Z', '+00:00'))
+                checkout = datetime.fromisoformat(check_out_date.replace('Z', '+00:00'))
+                num_nights = (checkout - checkin).days
+            
+            data = {
+                "guest_name": guest_name,
+                "guest_phone": guest_phone,
+                "guest_email": guest_email,
+                "room_category": room_category,
+                "num_adults": num_adults,
+                "num_children": num_children,
+                "check_in_date": check_in_date,
+                "num_nights": num_nights,
+                "check_out_date": check_out_date,
+                "booking_channel": booking_channel,
+                "payment_status": payment_status,
+                **kwargs
+            }
+            
+            if special_requests:
+                data["special_requests"] = special_requests
+            
+            result = self._make_request("POST", "/api/hocc/bookings", data=data)
+            
+            if result and result.get("success"):
+                logger.info(f"Booking created successfully: {result.get('data', {}).get('booking_id')}")
+                return result.get("data")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error creating booking: {str(e)}", exc_info=True)
+            return None
     
     def update_booking(
         self,
@@ -277,79 +325,65 @@ class TravelStudioService:
         self,
         check_in_date: str,
         check_out_date: str,
-        room_type: Optional[str] = None,
+        category: Optional[str] = None,
         num_adults: Optional[int] = None,
         num_children: Optional[int] = None
     ) -> Optional[List[Dict]]:
         """
-        Get available rooms for given dates by checking existing bookings
+        Get available rooms for given dates using the Travel Studio API
         
         Args:
-            check_in_date: Check-in date (YYYY-MM-DD format)
-            check_out_date: Check-out date (YYYY-MM-DD format)
-            room_type: Filter by room category (optional)
+            check_in_date: Check-in date (ISO format: YYYY-MM-DDTHH:MM:SS.SSSZ or YYYY-MM-DD)
+            check_out_date: Check-out date (ISO format: YYYY-MM-DDTHH:MM:SS.SSSZ or YYYY-MM-DD)
+            category: Filter by room category (optional, e.g., "Deluxe", "Luxury Cottage")
             num_adults: Number of adults (optional)
             num_children: Number of children (optional)
             
         Returns:
             List of available rooms with pricing or None on error
+            
+        Example Response:
+            [
+                {
+                    "id": "683635a0-7b97-4dd2-900f-cc3e67738870",
+                    "roomNumber": "012",
+                    "category": "Deluxe",
+                    "floor": "1",
+                    "wing": "A",
+                    "isOccupiable": true,
+                    "booking_list": [...],
+                    "image_urls": [],
+                    "base_rate": "5775.00",
+                    "status": "vacant"
+                }
+            ]
         """
-        from datetime import datetime
-        
         try:
-            # Get all rooms
-            all_rooms = self.get_all_rooms()
-            if not all_rooms:
-                logger.error("Failed to fetch rooms list")
+            # Convert YYYY-MM-DD to ISO format if needed
+            if "T" not in check_in_date:
+                check_in_date = f"{check_in_date}T14:00:00.000Z"
+            if "T" not in check_out_date:
+                check_out_date = f"{check_out_date}T11:00:00.000Z"
+            
+            # Build request body
+            data = {
+                "check_in_date": check_in_date,
+                "check_out_date": check_out_date
+            }
+            
+            if category:
+                data["category"] = category
+            
+            # Make POST request to /api/hocc/rooms/available
+            result = self._make_request("POST", "/api/hocc/rooms/available", data=data)
+            
+            if result and result.get("success"):
+                available_rooms = result.get("data", [])
+                logger.info(f"Found {len(available_rooms)} available rooms for category '{category}' from {check_in_date} to {check_out_date}")
+                return available_rooms
+            else:
+                logger.warning(f"No available rooms found or API error")
                 return None
-            
-            # Parse check-in and check-out dates
-            check_in = datetime.strptime(check_in_date, "%Y-%m-%d")
-            check_out = datetime.strptime(check_out_date, "%Y-%m-%d")
-            
-            available_rooms = []
-            
-            for room in all_rooms:
-                # Skip if room is not occupiable or under maintenance
-                if not room.get("isOccupiable") or room.get("status") == "under_maintenance":
-                    continue
-                
-                # Filter by room type if specified
-                if room_type and room.get("category", "").lower() != room_type.lower():
-                    continue
-                
-                # Check if room is available during requested dates
-                is_available = True
-                booking_list = room.get("booking_list", [])
-                
-                if booking_list:
-                    for booking in booking_list:
-                        booking_check_in = datetime.strptime(
-                            booking["check_in_date"].split("T")[0], "%Y-%m-%d"
-                        )
-                        booking_check_out = datetime.strptime(
-                            booking["check_out_date"].split("T")[0], "%Y-%m-%d"
-                        )
-                        
-                        # Check for date overlap
-                        if not (check_out <= booking_check_in or check_in >= booking_check_out):
-                            is_available = False
-                            break
-                
-                if is_available:
-                    available_rooms.append({
-                        "room_id": room.get("id"),
-                        "room_number": room.get("roomNumber"),
-                        "category": room.get("category"),
-                        "base_rate": float(room.get("base_rate", 0)),
-                        "floor": room.get("floor"),
-                        "wing": room.get("wing"),
-                        "image_urls": room.get("image_urls", []),
-                        "status": room.get("status")
-                    })
-            
-            logger.info(f"Found {len(available_rooms)} available rooms for {check_in_date} to {check_out_date}")
-            return available_rooms
             
         except Exception as e:
             logger.error(f"Error checking room availability: {str(e)}", exc_info=True)
@@ -369,6 +403,25 @@ class TravelStudioService:
         # Extract unique categories
         categories = list(set(room.get("category") for room in rooms if room.get("category")))
         return sorted(categories)
+    
+    def get_room_bookings(self, room_id: str) -> Optional[List[Dict]]:
+        """
+        Get all bookings for a specific room
+        
+        Args:
+            room_id: Room ID (UUID format)
+            
+        Returns:
+            List of bookings for the room or None on error
+            
+        Example Endpoint:
+            GET /api/hocc/rooms/{room_id}/bookings
+        """
+        result = self._make_request("GET", f"/api/hocc/rooms/{room_id}/bookings")
+        
+        if result and result.get("success"):
+            return result.get("data", [])
+        return None
     
     # Guest Management
     
