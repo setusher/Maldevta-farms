@@ -152,7 +152,7 @@ class TravelStudioService:
         num_adults: int,
         num_children: int = 0,
         num_nights: Optional[int] = None,
-        booking_channel: str = "whatsapp",
+        booking_channel: str = "direct",
         payment_status: str = "Unpaid",
         special_requests: Optional[str] = None,
         **kwargs

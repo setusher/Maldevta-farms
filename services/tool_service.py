@@ -117,10 +117,25 @@ class ToolService:
         try:
             logger.info(f"Checking availability via Travel Studio API: {check_in} to {check_out}")
             
+            # Map room type IDs to actual Travel Studio categories
+            room_type_mapping = {
+                "DELUXE": "Deluxe",
+                "COTTAGE": "Luxury Cottage",
+                "COTTAGE_BATHTUB": "Luxury Cottage",
+                "BASIC": "basic",
+            }
+            
+            # Get and map the room type
+            requested_type = params.get("room_type_id")
+            mapped_category = room_type_mapping.get(requested_type, requested_type) if requested_type else None
+            
+            if requested_type and mapped_category:
+                logger.info(f"Mapped room type '{requested_type}' to '{mapped_category}'")
+            
             available_rooms = self.travel_studio.get_available_rooms(
                 check_in_date=check_in,
                 check_out_date=check_out,
-                category=params.get("room_type_id"),
+                category=mapped_category,
                 num_adults=params.get("num_of_adults"),
                 num_children=params.get("num_of_children")
             )
@@ -209,10 +224,23 @@ class ToolService:
         try:
             logger.info(f"Creating booking via Travel Studio API: {params.get('name')}")
             
+            # Map room type IDs to actual Travel Studio categories
+            room_type_mapping = {
+                "DELUXE": "Deluxe",
+                "COTTAGE": "Luxury Cottage",
+                "COTTAGE_BATHTUB": "Luxury Cottage",
+                "BASIC": "basic",
+                "Deluxe": "Deluxe",  # Already correct
+                "Luxury Cottage": "Luxury Cottage",  # Already correct
+                "basic": "basic"  # Already correct
+            }
+            
             # Determine room category from room_type_ids array
             room_category = "Deluxe"  # Default
             if params.get("room_type_ids") and len(params["room_type_ids"]) > 0:
-                room_category = params["room_type_ids"][0]
+                requested_type = params["room_type_ids"][0]
+                room_category = room_type_mapping.get(requested_type, requested_type)
+                logger.info(f"Mapped room type '{requested_type}' to '{room_category}'")
             
             booking = self.travel_studio.create_booking(
                 guest_name=params.get("name", ""),
@@ -223,7 +251,7 @@ class ToolService:
                 room_category=room_category,
                 num_adults=params.get("num_of_adults", 1),
                 num_children=params.get("num_of_children", 0),
-                booking_channel="whatsapp",
+                booking_channel="direct",
                 payment_status="Unpaid",
                 special_requests=params.get("special_request", "")
             )
