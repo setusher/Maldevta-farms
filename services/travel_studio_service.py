@@ -206,7 +206,8 @@ class TravelStudioService:
             if num_nights is None:
                 checkin = datetime.fromisoformat(check_in_date.replace('Z', '+00:00'))
                 checkout = datetime.fromisoformat(check_out_date.replace('Z', '+00:00'))
-                num_nights = (checkout - checkin).days
+                # Use date() to get proper day count (15th to 17th = 2 nights)
+                num_nights = (checkout.date() - checkin.date()).days
             
             data = {
                 "guest_name": guest_name,
