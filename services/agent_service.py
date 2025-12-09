@@ -402,10 +402,25 @@ class AgentService:
                     logger.info(f"Calling tool: {tool_name} with input: {tool_input}")
                     
                     try:
-                        # Call the tool
+                        # Call the tool - route to correct method
                         if tool_name == "request_update_or_cancel":
                             tool_result = await self.tool_service.request_update_or_cancel(tool_input)
+                        elif tool_name == "check_availability":
+                            tool_result = await self.tool_service.check_availability(tool_input)
+                        elif tool_name == "create_booking_reservation":
+                            tool_result = await self.tool_service.create_booking_reservation(tool_input)
+                        elif tool_name == "get_all_room_reservations":
+                            tool_result = await self.tool_service.get_all_room_reservations(tool_input)
+                        elif tool_name == "create_event_inquiry":
+                            tool_result = await self.tool_service.create_event_inquiry(tool_input)
+                        elif tool_name == "lead_gen":
+                            tool_result = await self.tool_service.lead_gen(tool_input)
+                        elif tool_name == "human_followup":
+                            tool_result = await self.tool_service.human_followup(tool_input)
+                        elif tool_name == "general_info":
+                            tool_result = await self.tool_service.general_info(tool_input)
                         else:
+                            # For any other tools, try the old API (will likely fail)
                             tool_result = await self.tool_service.call_tool(tool_name, tool_input)
                         
                         # Save tool call
