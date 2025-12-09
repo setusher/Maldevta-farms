@@ -463,6 +463,53 @@ async def get_hotel_profile():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Email notification endpoint
+
+@app.post("/send_email")
+async def send_email_endpoint(request: Request):
+    """
+    Send email notification
+    Used by AI agent for cancel/upgrade/update requests and event inquiries
+    """
+    try:
+        from utils.helpers import send_email
+        
+        data = await request.json()
+        
+        to_email = data.get("to_email")
+        subject = data.get("subject")
+        body = data.get("body")
+        is_html = data.get("is_html", True)  # Default to HTML for formatted emails
+        
+        if not all([to_email, subject, body]):
+            raise HTTPException(
+                status_code=400,
+                detail="Missing required fields: to_email, subject, body"
+            )
+        
+        logger.info(f"Sending email to {to_email}: {subject}")
+        
+        result = send_email(
+            to_email=to_email,
+            subject=subject,
+            body=body,
+            is_html=is_html
+        )
+        
+        if result.get("success"):
+            logger.info(f"Email sent successfully to {to_email}")
+            return {"success": True, "message": result.get("message")}
+        else:
+            logger.error(f"Failed to send email: {result.get('error')}")
+            return {"success": False, "error": result.get("error")}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in send_email endpoint: {str(e)}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
 # CORS middleware
 from fastapi.middleware.cors import CORSMiddleware
 

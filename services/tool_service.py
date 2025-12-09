@@ -242,6 +242,41 @@ class ToolService:
                 room_category = room_type_mapping.get(requested_type, requested_type)
                 logger.info(f"Mapped room type '{requested_type}' to '{room_category}'")
             
+            # Ensure numeric fields are integers (AI often sends floats)
+            num_adults = int(params.get("num_of_adults", 1))
+            num_children = int(params.get("num_of_children", 0))
+            
+            # Check if guest already has a booking for these dates
+            phone_number = params.get("phone_number", "")
+            if phone_number:
+                existing_bookings = self.travel_studio.get_bookings()
+                if existing_bookings:
+                    # Normalize phone for comparison
+                    phone_normalized = phone_number.replace("+", "").replace(" ", "").replace("-", "")
+                    
+                    for existing in existing_bookings:
+                        guest = existing.get("Guest") or {}
+                        existing_phone = (guest.get("phone") or "").replace("+", "").replace(" ", "").replace("-", "")
+                        
+                        if existing_phone == phone_normalized:
+                            # Check date overlap
+                            existing_checkin = existing.get("check_in_date", "")[:10]
+                            existing_checkout = existing.get("check_out_date", "")[:10]
+                            new_checkin = check_in
+                            new_checkout = check_out
+                            
+                            # Check if dates overlap
+                            if (existing_checkin <= new_checkout and existing_checkout >= new_checkin):
+                                # Found overlapping booking
+                                booking_id = existing.get("booking_id")
+                                logger.info(f"Guest already has booking {booking_id} for overlapping dates")
+                                
+                                return {
+                                    "success": True,
+                                    "data": existing,
+                                    "message": f"You already have an existing booking (ID: {booking_id}) for these dates. Payment link: https://maldevtafarms.com/book?bookingId={booking_id}"
+                                }
+            
             booking = self.travel_studio.create_booking(
                 guest_name=params.get("name", ""),
                 guest_email=params.get("email", "guest@example.com"),
@@ -249,9 +284,9 @@ class ToolService:
                 check_in_date=check_in,
                 check_out_date=check_out,
                 room_category=room_category,
-                num_adults=params.get("num_of_adults", 1),
-                num_children=params.get("num_of_children", 0),
-                booking_channel="direct",
+                num_adults=num_adults,
+                num_children=num_children,
+                booking_channel="whatsapp",
                 payment_status="Unpaid",
                 special_requests=params.get("special_request", "")
             )

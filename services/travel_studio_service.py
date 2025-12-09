@@ -214,8 +214,8 @@ class TravelStudioService:
                 "guest_phone": guest_phone,
                 "guest_email": guest_email,
                 "room_category": room_category,
-                "num_adults": num_adults,
-                "num_children": num_children,
+                "num_adults": int(num_adults) if num_adults else 1,  # Ensure integer
+                "num_children": int(num_children) if num_children is not None else 0,  # Ensure integer
                 "check_in_date": check_in_date,
                 "num_nights": num_nights,
                 "check_out_date": check_out_date,
@@ -226,6 +226,9 @@ class TravelStudioService:
             
             if special_requests:
                 data["special_requests"] = special_requests
+            
+            # Log the exact data being sent for debugging
+            logger.info(f"Booking data being sent: {data}")
             
             result = self._make_request("POST", "/api/hocc/bookings", data=data)
             
